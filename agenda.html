@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agenda de Remédios</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      padding: 2rem;
+    }
+    h1 {
+      text-align: center;
+    }
+    label {
+      font-size: 15px;
+    }
+    .formulario, .agenda {
+      max-width: 800px;
+      margin: 1rem auto;
+      background-color: white;
+      padding: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .formulario input, .formulario button {
+      width: 100%;
+      padding: 0.5rem;
+      margin-top: 0.5rem;
+      margin-bottom: 1rem;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    th, td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    th {
+      background-color: #f0f0f0;
+    }
+    #ativarRelogio {
+      background-color: #28a745;
+      color: white;
+      margin-top: 1rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Agenda de Remédios</h1>
+  <div class="formulario">
+    <label>Insira os nomes dos remédios separados por vírgula:</label>
+    <input type="text" id="nomes" placeholder="ex: amoxicilina, ibuprofeno">
+
+    <label>Insira uma data por remédio (pode ser a mesma), separadas por vírgula:</label>
+    <input type="text" id="datas" placeholder="ex: 14/04/2025 16:30, 14/04/2025 18:30">
+
+    <label>Insira a quantidade de dias para cada remédio separados por vírgula:</label>
+    <input type="text" id="periodos" placeholder="ex: 7, 5">
+
+    <label>Insira a frequência de ingestão de cada remédio separado por vírgula (em horas):</label>
+    <input type="text" id="frequencias" placeholder="ex: 8, 5">
+
+    <button onclick="gerarAgenda()">Gerar Agenda</button>
+    <button id="ativarRelogio" onclick="ativarRelogio()">Ativar lembrete de horário (deixe a aba da Agenda aberta)</button>
+  </div>
+
+  <div class="agenda" id="agenda"></div>
+
+  <audio id="alarme" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
+
+  <script>
+    let agendaGlobal = [];
+
+    function parseDate(dateStr) {
+      const [d, m, y, h, min] = dateStr.match(/\d+/g).map(Number);
+      return new Date(y, m - 1, d, h, min);
+    }
+
+    function calcularHorarios(nome, inicio, fim, freq, agenda) {
+      let atual = new Date(inicio.getTime());
+      while (atual <= fim) {
+        const hora = atual.toISOString();
+        if (!agenda[hora]) agenda[hora] = [];
+        agenda[hora].push(nome);
+        atual = new Date(atual.getTime() + freq * 60 * 60 * 1000);
+      }
+    }
+
+    function horariosRemedios(nomes, inicios, periodos, frequencias) {
+      const agenda = {};
+
+      if (inicios.length === 1) {
+        inicios = Array(nomes.length).fill(inicios[0]);
+      }
+
+      const datasInicio = inicios.map(parseDate);
+
+      nomes.forEach((nome, i) => {
+        const inicio = datasInicio[i];
+        const fim = new Date(inicio.getTime() + periodos[i] * 24 * 60 * 60 * 1000);
+        calcularHorarios(nome, inicio, fim, frequencias[i], agenda);
+      });
+
+      const agendaOrdenada = Object.entries(agenda)
+        .sort((a, b) => new Date(a[0]) - new Date(b[0]))
+        .map(([hora, meds]) => ({ hora: new Date(hora), meds }));
+
+      return agendaOrdenada;
+    }
+
+    function gerarAgenda() {
+      const nomes = document.getElementById("nomes").value.split(",").map(s => s.trim());
+      const datas = document.getElementById("datas").value.split(",").map(s => s.trim());
+      const periodos = document.getElementById("periodos").value.split(",").map(s => parseInt(s.trim()));
+      const frequencias = document.getElementById("frequencias").value.split(",").map(s => parseInt(s.trim()));
+
+      const agenda = horariosRemedios(nomes, datas, periodos, frequencias);
+      agendaGlobal = agenda;
+
+      const agendaDiv = document.getElementById("agenda");
+      agendaDiv.innerHTML = "";
+
+      const tabela = document.createElement("table");
+      const cabecalho = document.createElement("thead");
+      cabecalho.innerHTML = `<tr><th>Horário</th><th>Remédios</th></tr>`;
+      tabela.appendChild(cabecalho);
+
+      const corpo = document.createElement("tbody");
+      agenda.forEach(item => {
+        const linha = document.createElement("tr");
+        const horaFormatada = item.hora.toLocaleString("pt-BR", {
+          hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric'
+        });
+        linha.innerHTML = `<td>${horaFormatada}</td><td>${item.meds.join(", ")}</td>`;
+        corpo.appendChild(linha);
+      });
+      tabela.appendChild(corpo);
+      agendaDiv.appendChild(tabela);
+    }
+
+    function ativarRelogio() {
+      const alarme = document.getElementById("alarme");
+      setInterval(() => {
+        const agora = new Date();
+        const agoraFormatado = agora.toISOString().slice(0, 16);
+        agendaGlobal.forEach(item => {
+          const horaAgendada = item.hora.toISOString().slice(0, 16);
+          if (horaAgendada === agoraFormatado) {
+            alarme.play();
+            alert("Hora do(s) remédio(s): " + item.meds.join(", "));
+          }
+        });
+      }, 60000);
+      alert("Lembrete ativado! O navegador irá tocar um som e mostrar um aviso quando chegar a hora de um remédio.");
+    }
+  </script>
+</body>
+</html>
