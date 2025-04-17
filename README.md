@@ -6,4 +6,4 @@ Por isso fiz ess programinha (junto com um despertador - isso se você deixar a 
 
 Espero que seja útil.
 
-![Agenda de Remédios](https://kennedyrmenezes.github.io/agenda_remedios/)
+[Agenda de Remédios](https://kennedyrmenezes.github.io/agenda_remedios/)
